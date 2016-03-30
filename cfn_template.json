@@ -1,0 +1,211 @@
+{
+  "AWSTemplateFormatVersion" : "2010-09-09",
+  "Description" : "AWS CloudFormation Template to setup GateOne server on Amazon Linux.",
+
+  "Parameters" : {
+    "InstanceType" : {
+      "Description" : "GateOne server EC2 instance type",
+      "Type" : "String",
+      "Default" : "t2.micro",
+      "AllowedValues" : [ "t1.micro", "t2.micro", "t2.small", "t2.medium", "m1.small", "m1.medium", "m1.large", "m1.xlarge", "m2.xlarge", "m2.2xlarge", "m2.4xlarge", "m3.medium", "m3.large", "m3.xlarge", "m3.2xlarge", "c1.medium", "c1.xlarge", "c3.large", "c3.xlarge", "c3.2xlarge", "c3.4xlarge", "c3.8xlarge", "c4.large", "c4.xlarge", "c4.2xlarge", "c4.4xlarge", "c4.8xlarge", "r3.large", "r3.xlarge", "r3.2xlarge", "r3.4xlarge", "r3.8xlarge", "i2.xlarge", "i2.2xlarge", "i2.4xlarge", "i2.8xlarge", "hi1.4xlarge", "hs1.8xlarge", "cr1.8xlarge", "cc2.8xlarge", "cg1.4xlarge"],
+      "ConstraintDescription" : "must be a valid EC2 instance type."
+    },
+
+    "KeyName" : {
+      "Description" : "Amazon EC2 key pair name",
+      "Type" : "AWS::EC2::KeyPair::KeyName",
+      "ConstraintDescription" : "must be the name of an existing EC2 KeyPair."
+    },
+
+    "DomainName" : {
+      "Description" : "Domain name to assign GateOne server. If not specified, use Elastic IP address instead of domain name.",
+      "Type" : "String",
+      "Default" : ""
+    },
+
+    "GateOneUserName" : {
+      "Description" : "User name to sign in GateOne.",
+      "Type" : "String",
+      "Default" : "gateone"
+    },
+
+    "GateOneUserPassword" : {
+      "Description" : "User password to sign in GateOne.",
+      "Type" : "String",
+      "Default" : "gateone"
+    },
+
+    "SSHLocation" : {
+      "Description" : "The IP address range that can be used to SSH to the EC2 instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "0.0.0.0/0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    },
+
+    "HTTPSLocation" : {
+      "Description" : "The IP address range that can be used to HTTPS to the EC2 instances",
+      "Type": "String",
+      "MinLength": "9",
+      "MaxLength": "18",
+      "Default": "0.0.0.0/0",
+      "AllowedPattern": "(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})\\.(\\d{1,3})/(\\d{1,2})",
+      "ConstraintDescription": "must be a valid IP CIDR range of the form x.x.x.x/x."
+    }
+  },
+
+  "Mappings" : {
+    "AWSInstanceType2Arch" : {
+      "t1.micro"    : { "Arch" : "PV64"   },
+      "t2.micro"    : { "Arch" : "HVM64"  },
+      "t2.small"    : { "Arch" : "HVM64"  },
+      "t2.medium"   : { "Arch" : "HVM64"  },
+      "m1.small"    : { "Arch" : "PV64"   },
+      "m1.medium"   : { "Arch" : "PV64"   },
+      "m1.large"    : { "Arch" : "PV64"   },
+      "m1.xlarge"   : { "Arch" : "PV64"   },
+      "m2.xlarge"   : { "Arch" : "PV64"   },
+      "m2.2xlarge"  : { "Arch" : "PV64"   },
+      "m2.4xlarge"  : { "Arch" : "PV64"   },
+      "m3.medium"   : { "Arch" : "HVM64"  },
+      "m3.large"    : { "Arch" : "HVM64"  },
+      "m3.xlarge"   : { "Arch" : "HVM64"  },
+      "m3.2xlarge"  : { "Arch" : "HVM64"  },
+      "c1.medium"   : { "Arch" : "PV64"   },
+      "c1.xlarge"   : { "Arch" : "PV64"   },
+      "c3.large"    : { "Arch" : "HVM64"  },
+      "c3.xlarge"   : { "Arch" : "HVM64"  },
+      "c3.2xlarge"  : { "Arch" : "HVM64"  },
+      "c3.4xlarge"  : { "Arch" : "HVM64"  },
+      "c3.8xlarge"  : { "Arch" : "HVM64"  },
+      "c4.large"    : { "Arch" : "HVM64"  },
+      "c4.xlarge"   : { "Arch" : "HVM64"  },
+      "c4.2xlarge"  : { "Arch" : "HVM64"  },
+      "c4.4xlarge"  : { "Arch" : "HVM64"  },
+      "c4.8xlarge"  : { "Arch" : "HVM64"  },
+      "r3.large"    : { "Arch" : "HVM64"  },
+      "r3.xlarge"   : { "Arch" : "HVM64"  },
+      "r3.2xlarge"  : { "Arch" : "HVM64"  },
+      "r3.4xlarge"  : { "Arch" : "HVM64"  },
+      "r3.8xlarge"  : { "Arch" : "HVM64"  },
+      "i2.xlarge"   : { "Arch" : "HVM64"  },
+      "i2.2xlarge"  : { "Arch" : "HVM64"  },
+      "i2.4xlarge"  : { "Arch" : "HVM64"  },
+      "i2.8xlarge"  : { "Arch" : "HVM64"  },
+      "hi1.4xlarge" : { "Arch" : "HVM64"  },
+      "hs1.8xlarge" : { "Arch" : "HVM64"  },
+      "cr1.8xlarge" : { "Arch" : "HVM64"  },
+      "cc2.8xlarge" : { "Arch" : "HVM64"  }
+    },
+
+    "AWSRegionArch2AMI" : {
+      "us-east-1"        : {"PV64" : "ami-22111148", "HVM64" : "ami-08111162"},
+      "us-west-2"        : {"PV64" : "ami-792bc219", "HVM64" : "ami-c229c0a2"},
+      "us-west-1"        : {"PV64" : "ami-0e087a6e", "HVM64" : "ami-1b0f7d7b"},
+      "eu-west-1"        : {"PV64" : "ami-a5368cd6", "HVM64" : "ami-31328842"},
+      "eu-central-1"     : {"PV64" : "ami-2bde3944", "HVM64" : "ami-e2df388d"},
+      "ap-northeast-1"   : {"PV64" : "ami-37020959", "HVM64" : "ami-f80e0596"},
+      "ap-southeast-1"   : {"PV64" : "ami-ff0cc79c", "HVM64" : "ami-e90dc68a"},
+      "ap-southeast-2"   : {"PV64" : "ami-f5210196", "HVM64" : "ami-f2210191"},
+      "sa-east-1"        : {"PV64" : "ami-661e930a", "HVM64" : "ami-1e159872"},
+      "cn-north-1"       : {"PV64" : "ami-08ef2465", "HVM64" : "ami-49e22924"}
+    }
+  },
+
+  "Conditions" : {
+    "IsDomainNameEmpty" : { "Fn::Equals" : [{"Ref": "DomainName"}, ""] }
+  },
+
+  "Resources": {
+    "EC2Instance" : {
+      "Type" : "AWS::EC2::Instance",
+      "Metadata" : {
+        "AWS::CloudFormation::Init" : {
+          "configSets" : {
+            "default" : [ "export_parameters", "setup" ]
+          },
+          "export_parameters" : {
+            "files" : {
+              "/tmp/cfn_parameters" : {
+                "content" : { "Fn::Join" : [ "", [
+                  "export DOMAIN_NAME=", {"Ref": "DomainName"}, "\n",
+                  "export USER=", {"Ref": "GateOneUserName"}, "\n",
+                  "export PASSWORD=", {"Ref": "GateOneUserPassword"}
+                ]]},
+                "mode" : "000644",
+                "owner" : "root",
+                "group" : "root"
+              }
+            }
+          },
+          "setup": {
+            "commands" : {
+              "run_setup_sh" : {
+                "command" : "curl -L https://raw.githubusercontent.com/kz-takahashi/gateone_template/master/setup_gateone_notty.sh | bash -l",
+                "test" : "test ! -e /opt/gateone/server.conf"
+              }
+            }
+          }
+        }
+      },
+      "Properties" : {
+        "UserData" : { "Fn::Base64" : { "Fn::Join" : [ "", [
+          "#!/bin/bash", "\n",
+          "/opt/aws/bin/cfn-init -s ", { "Ref" : "AWS::StackName" },
+          "  -r EC2Instance --region ", { "Ref" : "AWS::Region" }, "\n",
+          "/opt/aws/bin/cfn-signal -e $? --stack ", { "Ref" : "AWS::StackName" },
+          "  --resource EC2Instance --region ", { "Ref" : "AWS::Region" }
+        ]]}},
+        "InstanceType" : { "Ref" : "InstanceType" },
+        "SecurityGroups" : [ { "Ref" : "InstanceSecurityGroup" } ],
+        "KeyName" : { "Ref" : "KeyName" },
+        "ImageId" : { "Fn::FindInMap" : [ "AWSRegionArch2AMI", { "Ref" : "AWS::Region" },
+                          { "Fn::FindInMap" : [ "AWSInstanceType2Arch", { "Ref" : "InstanceType" }, "Arch" ] } ] },
+        "Tags" : [ { "Key": "Name", "Value": "GateOneServer" } ]
+      }
+    },
+
+    "InstanceSecurityGroup" : {
+      "Type" : "AWS::EC2::SecurityGroup",
+      "Properties" : {
+        "GroupDescription" : "Enable SSH and HTTPS access",
+        "SecurityGroupIngress" : [
+          { "IpProtocol" : "tcp", "FromPort" : "22", "ToPort" : "22", "CidrIp" : { "Ref" : "SSHLocation" } },
+          { "IpProtocol" : "tcp", "FromPort" : "443", "ToPort" : "443", "CidrIp" : { "Ref" : "HTTPSLocation" } }
+        ]
+      }
+    },
+
+    "EIPAddress" : {
+      "Type" : "AWS::EC2::EIP"
+    },
+
+    "EIPAssocciation" : {
+      "Type" : "AWS::EC2::EIPAssociation",
+      "Properties" : {
+        "InstanceId" : { "Ref" : "EC2Instance" },
+        "EIP" : { "Ref" : "EIPAddress" }
+      }
+    }
+  },
+
+  "Outputs": {
+    "EIPAddress": {
+      "Description": "GateOne server EIP address",
+      "Value": { "Ref" : "EIPAddress" }
+    },
+
+    "GateOneUrl": {
+      "Description": "GateOne server url",
+      "Value": {
+        "Fn::If" : [
+          "IsDomainNameEmpty",
+          { "Fn::Join": [ "", [ "https://", {"Ref": "EIPAddress"} ] ] },
+          { "Fn::Join": [ "", [ "https://", {"Ref": "DomainName"} ] ] }
+        ]
+      }
+    }
+  }
+}
